@@ -97,14 +97,13 @@ export function AuthForm() {
         <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
           {error}
           {(error.includes("Email not confirmed") ||
-            error.includes("メール") ||
-            error.includes("dev_confirm_user") ||
-            error.includes("Auth SQL")) && (
+            error.includes("rate limit") ||
+            error.includes("SUPABASE_DB_PASSWORD") ||
+            error.includes("メール")) && (
             <p className="mt-2 text-xs text-red-600">
-              Connect 画面の Database password を .env.local に{" "}
+              メール認証は使いません。Connect 画面の Database password を{" "}
               <code className="rounded bg-red-100 px-1">SUPABASE_DB_PASSWORD</code>{" "}
-              として追加し、<code className="rounded bg-red-100 px-1">npm run setup:production</code>{" "}
-              を実行してください。
+              として Vercel / .env.local に追加してください。
             </p>
           )}
         </div>

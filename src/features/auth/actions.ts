@@ -6,6 +6,7 @@ import {
   devSignUpAndEnter,
   isDevEmailBypassEnabled,
 } from "@/features/auth/dev-auth";
+import { ensureAuthReady } from "@/lib/db/ensure-auth-ready";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { revalidatePath } from "next/cache";
@@ -16,6 +17,8 @@ export async function signInWithPassword(
   password: string,
 ): Promise<ActionResult> {
   if (!isSupabaseConfigured()) return failure("Supabase が未設定です");
+
+  await ensureAuthReady();
 
   const supabase = await createClient();
   const signInResult = isDevEmailBypassEnabled()
@@ -37,6 +40,8 @@ export async function signUp(
   displayName?: string,
 ): Promise<ActionResult> {
   if (!isSupabaseConfigured()) return failure("Supabase が未設定です");
+
+  await ensureAuthReady();
 
   const supabase = await createClient();
 

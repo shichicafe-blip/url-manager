@@ -1,4 +1,7 @@
 import { confirmUserEmailDirect } from "@/lib/db/confirm-user-email";
+import { createEmailUserDirect } from "@/lib/db/create-auth-user";
+import { ensureAuthReady } from "@/lib/db/ensure-auth-ready";
+import { canUseDirectDatabase } from "@/lib/db/pg";
 import type { AuthError, SupabaseClient } from "@supabase/supabase-js";
 
 export function isDevEmailBypassEnabled(): boolean {
@@ -14,12 +17,37 @@ function isEmailNotConfirmedError(message: string): boolean {
   );
 }
 
+function isRateLimitError(message: string): boolean {
+  const lower = message.toLowerCase();
+  return lower.includes("rate limit") || lower.includes("too many requests");
+}
+
+function isUserAlreadyExistsError(message: string): boolean {
+  const lower = message.toLowerCase();
+  return (
+    lower.includes("already registered") ||
+    lower.includes("already exists") ||
+    lower.includes("user already registered")
+  );
+}
+
+function missingDbPasswordError(): AuthError {
+  return {
+    message:
+      "メール送信なし登録には SUPABASE_DB_PASSWORD の設定が必要です。" +
+      "Connect 画面の Database password を Vercel / .env.local に追加してください。",
+    name: "AuthApiError",
+    status: 500,
+  } as AuthError;
+}
+
 export async function devConfirmUser(
   supabase: SupabaseClient,
   email: string,
 ): Promise<boolean> {
-  const trimmedEmail = email.trim();
+  await ensureAuthReady();
 
+  const trimmedEmail = email.trim();
   const { error: rpcError } = await supabase.rpc("dev_confirm_user", {
     user_email: trimmedEmail,
   });
@@ -33,6 +61,8 @@ export async function devSignInWithPassword(
   email: string,
   password: string,
 ) {
+  await ensureAuthReady();
+
   const trimmedEmail = email.trim();
   let result = await supabase.auth.signInWithPassword({
     email: trimmedEmail,
@@ -52,12 +82,43 @@ export async function devSignInWithPassword(
   });
 }
 
+async function signUpViaDatabase(
+  supabase: SupabaseClient,
+  email: string,
+  password: string,
+  displayName?: string,
+) {
+  await ensureAuthReady();
+
+  const created = await createEmailUserDirect(email, password, displayName);
+  if (!created.ok) {
+    if (created.reason === "no_db") {
+      return { error: missingDbPasswordError() };
+    }
+    return {
+      error: {
+        message: "アカウント作成に失敗しました。",
+        name: "AuthApiError",
+        status: 500,
+      } as AuthError,
+    };
+  }
+
+  return devSignInWithPassword(supabase, email, password);
+}
+
 export async function devSignUpAndEnter(
   supabase: SupabaseClient,
   email: string,
   password: string,
   displayName?: string,
 ) {
+  await ensureAuthReady();
+
+  if (canUseDirectDatabase()) {
+    return signUpViaDatabase(supabase, email, password, displayName);
+  }
+
   const trimmedEmail = email.trim();
   const { data, error } = await supabase.auth.signUp({
     email: trimmedEmail,
@@ -67,12 +128,24 @@ export async function devSignUpAndEnter(
     },
   });
 
-  if (error) return { error };
+  if (error) {
+    if (
+      isRateLimitError(error.message) ||
+      isUserAlreadyExistsError(error.message) ||
+      isEmailNotConfirmedError(error.message)
+    ) {
+      await devConfirmUser(supabase, trimmedEmail);
+      const signIn = await devSignInWithPassword(supabase, trimmedEmail, password);
+      if (!signIn.error) return { error: null };
+    }
+    return { error };
+  }
 
   if (data.session) {
     return { error: null };
   }
 
   await devConfirmUser(supabase, trimmedEmail);
-  return devSignInWithPassword(supabase, trimmedEmail, password);
+  const signIn = await devSignInWithPassword(supabase, trimmedEmail, password);
+  return { error: signIn.error };
 }

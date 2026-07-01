@@ -105,6 +105,12 @@ async function applyViaPassword(projectRef, password) {
   try {
     await client.query(query);
     console.log("✓ 開発用 Auth SQL を DB password 経由で適用しました");
+
+    if (process.env.SUPABASE_ACCESS_TOKEN) {
+      await applyViaManagementApi(projectRef, process.env.SUPABASE_ACCESS_TOKEN);
+    } else {
+      console.log("  mailer_autoconfirm 無効化は SUPABASE_ACCESS_TOKEN がある場合に適用されます");
+    }
   } finally {
     await client.end();
   }
