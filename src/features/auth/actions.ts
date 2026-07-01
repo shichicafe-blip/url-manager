@@ -2,11 +2,9 @@
 
 import { failure, success, type ActionResult } from "@/lib/actions/result";
 import {
-  devSignInWithPassword,
-  devSignUpAndEnter,
-  isDevEmailBypassEnabled,
-} from "@/features/auth/dev-auth";
-import { ensureAuthReady } from "@/lib/db/ensure-auth-ready";
+  signInWithEmailConfirmBypass,
+  signUpAndEnter,
+} from "@/features/auth/email-bypass";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { revalidatePath } from "next/cache";
@@ -18,15 +16,12 @@ export async function signInWithPassword(
 ): Promise<ActionResult> {
   if (!isSupabaseConfigured()) return failure("Supabase が未設定です");
 
-  await ensureAuthReady();
-
   const supabase = await createClient();
-  const signInResult = isDevEmailBypassEnabled()
-    ? await devSignInWithPassword(supabase, email, password)
-    : await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password,
-      });
+  const signInResult = await signInWithEmailConfirmBypass(
+    supabase,
+    email,
+    password,
+  );
 
   if (signInResult.error) return failure(signInResult.error.message);
 
@@ -41,40 +36,20 @@ export async function signUp(
 ): Promise<ActionResult> {
   if (!isSupabaseConfigured()) return failure("Supabase が未設定です");
 
-  await ensureAuthReady();
-
   const supabase = await createClient();
-
-  if (isDevEmailBypassEnabled()) {
-    const { error } = await devSignUpAndEnter(
-      supabase,
-      email,
-      password,
-      displayName,
-    );
-    if (!error) {
-      revalidatePath("/");
-      redirect("/");
-    }
-    return failure(error.message);
-  }
-
-  const { data, error } = await supabase.auth.signUp({
-    email: email.trim(),
+  const { error } = await signUpAndEnter(
+    supabase,
+    email,
     password,
-    options: {
-      data: { display_name: displayName?.trim() || undefined },
-    },
-  });
+    displayName,
+  );
 
-  if (error) return failure(error.message);
-
-  if (data.session) {
+  if (!error) {
     revalidatePath("/");
     redirect("/");
   }
 
-  return success(undefined);
+  return failure(error.message);
 }
 
 export async function signOut(): Promise<void> {

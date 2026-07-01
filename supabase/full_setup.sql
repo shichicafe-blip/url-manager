@@ -193,7 +193,7 @@ insert into public.tags (name, color) values
   ('参考', '#F59E0B')
 on conflict (name) do nothing;
 
--- ========== 003: 開発用メール確認スキップ ==========
+-- ========== 003: メール確認スキップ（anon RPC） ==========
 create or replace function public.dev_confirm_user(user_email text)
 returns void
 language plpgsql
@@ -202,9 +202,7 @@ set search_path = auth, public
 as $$
 begin
   update auth.users
-  set
-    email_confirmed_at = coalesce(email_confirmed_at, now()),
-    confirmed_at = coalesce(confirmed_at, now())
+  set email_confirmed_at = coalesce(email_confirmed_at, now())
   where lower(email) = lower(user_email);
 end;
 $$;
@@ -222,9 +220,6 @@ begin
   if new.email_confirmed_at is null then
     new.email_confirmed_at = now();
   end if;
-  if new.confirmed_at is null then
-    new.confirmed_at = now();
-  end if;
   return new;
 end;
 $$;
@@ -235,7 +230,5 @@ create trigger on_auth_user_auto_confirm
   for each row execute function public.handle_auth_user_auto_confirm();
 
 update auth.users
-set
-  email_confirmed_at = coalesce(email_confirmed_at, now()),
-  confirmed_at = coalesce(confirmed_at, now())
+set email_confirmed_at = coalesce(email_confirmed_at, now())
 where email_confirmed_at is null;

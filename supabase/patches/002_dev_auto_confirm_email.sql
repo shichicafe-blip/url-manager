@@ -1,5 +1,5 @@
--- 開発用: メール確認をスキップ（Dashboard / Service Role 不要）
--- npm run dev:auth-sql で適用
+-- メール確認スキップ（anon key から dev_confirm_user RPC を呼ぶ前提）
+-- full_setup.sql の 003 セクションと同内容
 
 create or replace function public.dev_confirm_user(user_email text)
 returns void
@@ -9,9 +9,7 @@ set search_path = auth, public
 as $$
 begin
   update auth.users
-  set
-    email_confirmed_at = coalesce(email_confirmed_at, now()),
-    confirmed_at = coalesce(confirmed_at, now())
+  set email_confirmed_at = coalesce(email_confirmed_at, now())
   where lower(email) = lower(user_email);
 end;
 $$;
@@ -29,9 +27,6 @@ begin
   if new.email_confirmed_at is null then
     new.email_confirmed_at = now();
   end if;
-  if new.confirmed_at is null then
-    new.confirmed_at = now();
-  end if;
   return new;
 end;
 $$;
@@ -42,7 +37,5 @@ create trigger on_auth_user_auto_confirm
   for each row execute function public.handle_auth_user_auto_confirm();
 
 update auth.users
-set
-  email_confirmed_at = coalesce(email_confirmed_at, now()),
-  confirmed_at = coalesce(confirmed_at, now())
+set email_confirmed_at = coalesce(email_confirmed_at, now())
 where email_confirmed_at is null;
