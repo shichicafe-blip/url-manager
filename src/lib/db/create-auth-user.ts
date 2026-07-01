@@ -26,9 +26,7 @@ export async function createEmailUserDirect(
       if ((existing.rowCount ?? 0) > 0) {
         await query(
           `update auth.users
-           set
-             email_confirmed_at = coalesce(email_confirmed_at, now()),
-             confirmed_at = coalesce(confirmed_at, now())
+           set email_confirmed_at = coalesce(email_confirmed_at, now())
            where lower(email) = lower($1)`,
           [trimmedEmail],
         );

@@ -10,9 +10,7 @@ export async function confirmUserEmailDirect(email: string): Promise<boolean> {
     const result = await withPostgres(async (query) =>
       query(
         `update auth.users
-         set
-           email_confirmed_at = coalesce(email_confirmed_at, now()),
-           confirmed_at = coalesce(confirmed_at, now())
+         set email_confirmed_at = coalesce(email_confirmed_at, now())
          where lower(email) = lower($1)`,
         [trimmed],
       ),

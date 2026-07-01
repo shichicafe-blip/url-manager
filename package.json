@@ -13,6 +13,7 @@
     "check:dev-auth": "node scripts/check-dev-auth.mjs",
     "setup:auth": "node scripts/apply-dev-auth-sql.mjs",
     "setup:production": "node scripts/setup-production.mjs",
+    "vercel:sync-env": "node scripts/sync-vercel-env.mjs",
     "db:push": "npx supabase db push"
   },
   "dependencies": {
