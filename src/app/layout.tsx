@@ -17,6 +17,12 @@ export const metadata: Metadata = {
   description: "複数プロジェクトのURLを一元管理するアプリ",
 };
 
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover" as const,
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{

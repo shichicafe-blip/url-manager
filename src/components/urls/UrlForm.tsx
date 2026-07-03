@@ -87,7 +87,7 @@ export function UrlForm({
         <select
           value={categoryId}
           onChange={(e) => setCategoryId(e.target.value)}
-          className="h-9 w-full rounded-md border border-neutral-200 bg-white px-3 text-sm outline-none focus:border-neutral-400 disabled:opacity-50"
+          className="h-11 w-full rounded-md border border-neutral-200 bg-white px-3 text-base outline-none focus:border-neutral-400 disabled:opacity-50 sm:h-9 sm:text-sm"
           required
           disabled={isSubmitting || categories.length === 0}
         >

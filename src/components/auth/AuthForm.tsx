@@ -58,7 +58,7 @@ export function AuthForm() {
   };
 
   return (
-    <div className="w-full max-w-md rounded-xl border border-neutral-200 bg-white p-8 shadow-sm">
+    <div className="w-full max-w-md rounded-xl border border-neutral-200 bg-white p-5 shadow-sm sm:p-8">
       <div className="mb-6 text-center">
         <h1 className="text-xl font-semibold text-neutral-900">URL管理アプリ</h1>
         <p className="mt-1 text-sm text-neutral-500">REPLUSWORKS</p>

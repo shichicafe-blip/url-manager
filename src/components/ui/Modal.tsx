@@ -26,7 +26,7 @@ export function Modal({ open, onClose, title, children, className }: ModalProps)
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4">
       <button
         type="button"
         aria-label="閉じる"
@@ -38,16 +38,17 @@ export function Modal({ open, onClose, title, children, className }: ModalProps)
         aria-modal="true"
         aria-labelledby="modal-title"
         className={cn(
-          "relative z-10 w-full max-w-lg rounded-lg border border-neutral-200 bg-white shadow-xl",
+          "relative z-10 flex max-h-[92dvh] w-full flex-col border border-neutral-200 bg-white shadow-xl",
+          "rounded-t-2xl sm:max-w-lg sm:rounded-lg",
           className,
         )}
       >
-        <div className="border-b border-neutral-100 px-5 py-4">
+        <div className="shrink-0 border-b border-neutral-100 px-4 py-4 sm:px-5">
           <h2 id="modal-title" className="text-base font-semibold text-neutral-900">
             {title}
           </h2>
         </div>
-        <div className="px-5 py-4">{children}</div>
+        <div className="overflow-y-auto px-4 py-4 pb-safe sm:px-5">{children}</div>
       </div>
     </div>
   );

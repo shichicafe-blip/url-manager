@@ -54,6 +54,7 @@ export function AppShell({
   const [urls, setUrls] = useState(initialUrls);
   const [tags, setTags] = useState(initialTags);
   const [activeFilter, setActiveFilter] = useState<UrlFilter>("all");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isUrlModalOpen, setIsUrlModalOpen] = useState(false);
   const [editingUrl, setEditingUrl] = useState<UrlWithCategory | null>(null);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
@@ -230,20 +231,27 @@ export function AppShell({
   };
 
   return (
-    <div className="flex h-screen bg-neutral-100">
+    <div className="flex min-h-dvh bg-neutral-100">
       <Sidebar
         categories={categories}
         tags={tags}
         activeFilter={activeFilter}
         isAdmin={isAdmin}
+        open={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
         onFilterChange={setActiveFilter}
         onManageCategories={openCategoryModal}
       />
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <Header searchQuery={query} onSearchChange={setQuery} profile={profile} />
+        <Header
+          searchQuery={query}
+          onSearchChange={setQuery}
+          profile={profile}
+          onMenuOpen={() => setSidebarOpen(true)}
+        />
 
-        <main className="flex-1 overflow-y-auto p-6">
+        <main className="flex-1 overflow-y-auto px-3 py-4 pb-24 sm:px-6 sm:py-6 sm:pb-6">
           {!isSupabaseConfigured && (
             <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
               Supabase が未設定です。`.env.local` に接続情報を設定し、SQL マイグレーションを実行してください。
@@ -263,12 +271,12 @@ export function AppShell({
             </div>
           )}
 
-          <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+          <div className="mb-4 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
             <div>
               <h2 className="text-lg font-semibold text-neutral-900">URL一覧</h2>
               <p className="text-sm text-neutral-500">{filteredUrls.length} 件</p>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="hidden items-center gap-3 sm:flex">
               <UrlViewToggle viewMode={viewMode} onChange={setViewMode} />
               <Button type="button" onClick={openCreateUrlModal} disabled={categories.length === 0}>
                 + URL追加
@@ -284,6 +292,18 @@ export function AppShell({
             onToggleFavorite={handleToggleFavorite}
           />
         </main>
+
+        <div className="fixed bottom-4 right-4 z-20 sm:hidden pb-safe">
+          <Button
+            type="button"
+            onClick={openCreateUrlModal}
+            disabled={categories.length === 0}
+            className="h-12 min-w-12 rounded-full px-4 shadow-lg"
+            aria-label="URLを追加"
+          >
+            + URL追加
+          </Button>
+        </div>
       </div>
 
       <Modal

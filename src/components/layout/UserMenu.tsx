@@ -10,18 +10,20 @@ type UserMenuProps = {
 };
 
 export function UserMenu({ profile }: UserMenuProps) {
+  const displayName = profile.display_name ?? profile.email.split("@")[0];
+
   return (
-    <div className="ml-auto flex items-center gap-3">
+    <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
       {profile.role === "admin" && (
         <Link
           href="/admin"
-          className="text-sm text-neutral-600 hover:text-neutral-900"
+          className="hidden text-sm text-neutral-600 hover:text-neutral-900 sm:inline"
         >
           管理
         </Link>
       )}
-      <div className="text-right">
-        <p className="text-sm font-medium text-neutral-900">
+      <div className="hidden text-right sm:block">
+        <p className="max-w-[8rem] truncate text-sm font-medium text-neutral-900 lg:max-w-none">
           {profile.display_name ?? profile.email}
         </p>
         <p className="text-xs text-neutral-500">
@@ -33,8 +35,11 @@ export function UserMenu({ profile }: UserMenuProps) {
         variant="secondary"
         size="sm"
         onClick={() => signOut()}
+        className="min-h-10"
+        aria-label={`${displayName} をログアウト`}
       >
-        ログアウト
+        <span className="sm:hidden">退出</span>
+        <span className="hidden sm:inline">ログアウト</span>
       </Button>
     </div>
   );

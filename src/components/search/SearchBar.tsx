@@ -14,7 +14,7 @@ export function SearchBar({
   placeholder = "タイトル・カテゴリー・説明で検索",
 }: SearchBarProps) {
   return (
-    <div className="relative w-full max-w-xl">
+    <div className="relative min-w-0 flex-1">
       <Input
         value={value}
         onChange={(event) => onChange(event.target.value)}

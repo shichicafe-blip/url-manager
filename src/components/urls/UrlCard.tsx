@@ -1,5 +1,6 @@
 import type { UrlWithCategory } from "@/features/urls/types";
 import { getHostname } from "@/lib/utils/url";
+import { cn } from "@/lib/utils/cn";
 
 type UrlCardProps = {
   url: UrlWithCategory;
@@ -10,13 +11,13 @@ type UrlCardProps = {
 
 export function UrlCard({ url, onOpen, onEdit, onToggleFavorite }: UrlCardProps) {
   return (
-    <article className="rounded-lg border border-neutral-200 bg-white p-4 transition-shadow hover:shadow-sm">
+    <article className="rounded-lg border border-neutral-200 bg-white p-4 transition-shadow active:bg-neutral-50 sm:hover:shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <button
             type="button"
             onClick={() => onOpen(url)}
-            className="text-left text-sm font-semibold text-neutral-900 hover:underline"
+            className="text-left text-base font-semibold text-neutral-900 sm:text-sm sm:hover:underline"
           >
             {url.title}
           </button>
@@ -27,7 +28,10 @@ export function UrlCard({ url, onOpen, onEdit, onToggleFavorite }: UrlCardProps)
             type="button"
             aria-label={url.is_favorite ? "お気に入り解除" : "お気に入り登録"}
             onClick={() => onToggleFavorite(url.id)}
-            className={url.is_favorite ? "text-amber-500" : "text-neutral-300 hover:text-amber-400"}
+            className={cn(
+              "flex h-10 w-10 items-center justify-center text-lg",
+              url.is_favorite ? "text-amber-500" : "text-neutral-300",
+            )}
           >
             ★
           </button>
@@ -35,7 +39,7 @@ export function UrlCard({ url, onOpen, onEdit, onToggleFavorite }: UrlCardProps)
             type="button"
             aria-label="編集"
             onClick={() => onEdit(url)}
-            className="rounded px-2 py-1 text-xs text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800"
+            className="flex h-10 items-center rounded px-3 text-sm text-neutral-500 active:bg-neutral-100 sm:text-xs sm:hover:bg-neutral-100 sm:hover:text-neutral-800"
           >
             編集
           </button>
