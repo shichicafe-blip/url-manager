@@ -30,6 +30,7 @@ export async function getUrls(): Promise<UrlWithCategory[]> {
   const { data, error } = await supabase
     .from("urls")
     .select("*, category:categories(*), url_tags(tag:tags(*))")
+    .order("sort_order", { ascending: true })
     .order("created_at", { ascending: false });
 
   if (error) {

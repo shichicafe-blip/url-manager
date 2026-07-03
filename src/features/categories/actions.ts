@@ -15,6 +15,8 @@ type CategoryInput = {
   slug: string;
   color: string;
   sortOrder: number;
+  parentId?: string | null;
+  iconUrl?: string | null;
 };
 
 function validateCategoryInput(data: CategoryInput): string | null {
@@ -50,6 +52,8 @@ export async function createCategory(data: CategoryInput): Promise<ActionResult<
       slug: data.slug.trim(),
       color: data.color,
       sort_order: data.sortOrder,
+      parent_id: data.parentId ?? null,
+      icon_url: data.iconUrl?.trim() || null,
     })
     .select("*")
     .single();
@@ -82,6 +86,8 @@ export async function updateCategory(
   }
   if (data.color !== undefined) payload.color = data.color;
   if (data.sortOrder !== undefined) payload.sort_order = data.sortOrder;
+  if (data.parentId !== undefined) payload.parent_id = data.parentId;
+  if (data.iconUrl !== undefined) payload.icon_url = data.iconUrl?.trim() || null;
 
   const supabase = await createClient();
   const { data: updated, error } = await supabase
@@ -115,6 +121,24 @@ export async function deleteCategory(id: string): Promise<ActionResult> {
     }
     return failure(error.message);
   }
+
+  revalidatePath("/");
+  return success(undefined);
+}
+
+export async function reorderCategories(orderedIds: string[]): Promise<ActionResult> {
+  if (!isSupabaseConfigured()) return failure("Supabase が未設定です");
+
+  const adminError = await requireAdmin();
+  if (adminError) return adminError;
+
+  const supabase = await createClient();
+  const updates = orderedIds.map((id, index) =>
+    supabase.from("categories").update({ sort_order: index + 1 }).eq("id", id),
+  );
+  const results = await Promise.all(updates);
+  const failed = results.find((r) => r.error);
+  if (failed?.error) return failure(failed.error.message);
 
   revalidatePath("/");
   return success(undefined);

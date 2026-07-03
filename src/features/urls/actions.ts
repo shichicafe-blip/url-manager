@@ -17,6 +17,7 @@ type UrlInput = {
   categoryId: string;
   description?: string;
   tagIds?: string[];
+  iconUrl?: string | null;
 };
 
 function validateUrlInput(data: UrlInput): string | null {
@@ -62,6 +63,7 @@ export async function createUrl(data: UrlInput): Promise<ActionResult<Url>> {
       url: normalizeUrl(data.url),
       category_id: data.categoryId,
       description: data.description?.trim() || null,
+      icon_url: data.iconUrl?.trim() || null,
       user_id: profile.id,
     })
     .select("*")
@@ -95,6 +97,7 @@ export async function updateUrl(
   }
   if (data.categoryId !== undefined) payload.category_id = data.categoryId;
   if (data.description !== undefined) payload.description = data.description.trim() || null;
+  if (data.iconUrl !== undefined) payload.icon_url = data.iconUrl?.trim() || null;
 
   const supabase = await createClient();
   const { data: updated, error } = await supabase
@@ -164,6 +167,25 @@ export async function openUrl(id: string): Promise<ActionResult> {
     .eq("id", id);
 
   if (updateError) return failure(updateError.message);
+
+  revalidatePath("/");
+  return success(undefined);
+}
+
+export async function reorderUrls(orderedIds: string[]): Promise<ActionResult> {
+  if (!isSupabaseConfigured()) return failure("Supabase が未設定です");
+
+  const profile = await getCurrentProfile();
+  if (!profile) return failure("認証が必要です");
+  if (!isAdmin(profile)) return failure("管理者権限が必要です");
+
+  const supabase = await createClient();
+  const updates = orderedIds.map((id, index) =>
+    supabase.from("urls").update({ sort_order: index + 1 }).eq("id", id),
+  );
+  const results = await Promise.all(updates);
+  const failed = results.find((r) => r.error);
+  if (failed?.error) return failure(failed.error.message);
 
   revalidatePath("/");
   return success(undefined);

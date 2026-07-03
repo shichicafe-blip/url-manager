@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "URL管理アプリ | REPLUSWORKS",
-  description: "複数プロジェクトのURLを一元管理するアプリ",
+  title: "REPLUSWORKS | 会社専用ホーム画面",
+  description: "会社専用のiPhoneホーム画面のようなURLランチャー",
 };
 
 export const viewport = {
@@ -33,7 +33,7 @@ export default function RootLayout({
       lang="ja"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full bg-neutral-100 text-neutral-900">{children}</body>
+      <body className="min-h-full bg-[#f2f2f7] text-[#1c1c1e]">{children}</body>
     </html>
   );
 }

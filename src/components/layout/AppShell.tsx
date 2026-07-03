@@ -1,17 +1,20 @@
 "use client";
 
 import { CategoryForm } from "@/components/categories/CategoryForm";
-import { CategoryList } from "@/components/categories/CategoryList";
-import { Header } from "@/components/layout/Header";
-import { Sidebar } from "@/components/layout/Sidebar";
+import {
+  FolderHeader,
+  HomeTopBar,
+  ScreenWrapper,
+  SectionTitle,
+} from "@/components/home/HomeChrome";
+import { HomeSearchBar } from "@/components/home/HomeSearchBar";
+import { IconGrid } from "@/components/home/IconGrid";
 import { Modal } from "@/components/ui/Modal";
-import { Button } from "@/components/ui/Button";
 import { UrlForm } from "@/components/urls/UrlForm";
-import { UrlList } from "@/components/urls/UrlList";
-import { UrlViewToggle } from "@/components/urls/UrlViewToggle";
 import {
   createCategory,
   deleteCategory,
+  reorderCategories,
   updateCategory,
 } from "@/features/categories/actions";
 import type { Category } from "@/features/categories/types";
@@ -21,12 +24,22 @@ import {
   createUrl,
   deleteUrl,
   openUrl,
+  reorderUrls,
   updateUrl,
 } from "@/features/urls/actions";
-import type { UrlFilter, UrlFormData, UrlWithCategory } from "@/features/urls/types";
-import { useSearch } from "@/hooks/useSearch";
-import { useViewMode } from "@/hooks/useViewMode";
+import type { UrlFormData, UrlWithCategory } from "@/features/urls/types";
+import {
+  getChildCategories,
+  getFavoriteUrls,
+  getRecentUrls,
+  getTopLevelCategories,
+  getUrlsInCategory,
+  searchAll,
+} from "@/lib/categories/tree";
+import { getUrlIconColor } from "@/lib/icons";
 import type { Profile } from "@/types/database";
+import { signOut } from "@/features/auth/actions";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
@@ -39,7 +52,9 @@ type AppShellProps = {
   isSupabaseConfigured: boolean;
 };
 
-type CategoryModalView = "list" | "form";
+type NavScreen = { type: "home" } | { type: "folder"; categoryId: string };
+
+type ModalKind = "url" | "category" | null;
 
 export function AppShell({
   initialCategories,
@@ -52,67 +67,180 @@ export function AppShell({
   const router = useRouter();
   const [categories, setCategories] = useState(initialCategories);
   const [urls, setUrls] = useState(initialUrls);
-  const [tags, setTags] = useState(initialTags);
-  const [activeFilter, setActiveFilter] = useState<UrlFilter>("all");
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [isUrlModalOpen, setIsUrlModalOpen] = useState(false);
+  const [tags] = useState(initialTags);
+  const [navStack, setNavStack] = useState<NavScreen[]>([{ type: "home" }]);
+  const [animation, setAnimation] = useState<"forward" | "back" | "none">("none");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [editMode, setEditMode] = useState(false);
+  const [modalKind, setModalKind] = useState<ModalKind>(null);
   const [editingUrl, setEditingUrl] = useState<UrlWithCategory | null>(null);
-  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
-  const [categoryModalView, setCategoryModalView] = useState<CategoryModalView>("list");
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const { viewMode, setViewMode } = useViewMode();
 
   useEffect(() => {
     setCategories(initialCategories);
     setUrls(initialUrls);
-    setTags(initialTags);
-  }, [initialCategories, initialUrls, initialTags]);
+  }, [initialCategories, initialUrls]);
 
-  const filteredByCategory = useMemo(() => {
-    if (activeFilter === "all") return urls;
-    if (activeFilter === "favorites") return urls.filter((url) => url.is_favorite);
-    if (activeFilter === "recent") {
-      return [...urls]
-        .filter((url) => url.last_opened_at)
-        .sort(
-          (a, b) =>
-            new Date(b.last_opened_at ?? 0).getTime() -
-            new Date(a.last_opened_at ?? 0).getTime(),
-        );
-    }
-    if (activeFilter.startsWith("tag:")) {
-      const tagId = activeFilter.replace("tag:", "");
-      return urls.filter((url) => url.tags.some((tag) => tag.id === tagId));
-    }
-    return urls.filter((url) => url.category_id === activeFilter);
-  }, [activeFilter, urls]);
+  useEffect(() => {
+    if (animation === "none") return;
+    const timer = window.setTimeout(() => setAnimation("none"), 350);
+    return () => window.clearTimeout(timer);
+  }, [animation, navStack]);
 
-  const { query, setQuery, filteredUrls } = useSearch(filteredByCategory);
+  const currentScreen = navStack[navStack.length - 1];
+  const currentCategory =
+    currentScreen.type === "folder"
+      ? categories.find((c) => c.id === currentScreen.categoryId)
+      : null;
 
   const refresh = () => router.refresh();
 
+  const pushFolder = (categoryId: string) => {
+    setAnimation("forward");
+    setNavStack((prev) => [...prev, { type: "folder", categoryId }]);
+  };
+
+  const popFolder = () => {
+    if (navStack.length <= 1) return;
+    setAnimation("back");
+    setNavStack((prev) => prev.slice(0, -1));
+  };
+
   const handleOpenUrl = async (url: UrlWithCategory) => {
     window.open(url.url, "_blank", "noopener,noreferrer");
-
     const now = new Date().toISOString();
     setUrls((prev) =>
       prev.map((item) =>
         item.id === url.id
-          ? {
-              ...item,
-              last_opened_at: now,
-              click_count: item.click_count + 1,
-            }
+          ? { ...item, last_opened_at: now, click_count: item.click_count + 1 }
           : item,
       ),
     );
-
     const result = await openUrl(url.id);
     if (!result.ok) {
       setErrorMessage(result.error);
       refresh();
     }
+  };
+
+  const favorites = useMemo(() => getFavoriteUrls(urls), [urls]);
+  const recent = useMemo(() => getRecentUrls(urls), [urls]);
+  const topCategories = useMemo(() => getTopLevelCategories(categories), [categories]);
+  const searchResults = useMemo(
+    () => searchAll(searchQuery, categories, urls),
+    [searchQuery, categories, urls],
+  );
+
+  const folderChildren = useMemo(() => {
+    if (!currentCategory) return [];
+    return getChildCategories(categories, currentCategory.id);
+  }, [categories, currentCategory]);
+
+  const folderUrls = useMemo(() => {
+    if (!currentCategory) return [];
+    return getUrlsInCategory(urls, currentCategory.id);
+  }, [urls, currentCategory]);
+
+  const showFolderAsCategories =
+    currentCategory && (folderChildren.length > 0 || folderUrls.length === 0);
+
+  const openUrlModal = (url?: UrlWithCategory, defaultCategoryId?: string) => {
+    setEditingUrl(url ?? null);
+    setDefaultCategoryId(defaultCategoryId);
+    setModalKind("url");
+    setErrorMessage(null);
+  };
+
+  const [defaultCategoryId, setDefaultCategoryId] = useState<string | undefined>();
+
+  const openCategoryModal = (category?: Category | null, parentId?: string | null) => {
+    setEditingCategory(category ?? null);
+    setDefaultParentId(parentId);
+    setModalKind("category");
+    setErrorMessage(null);
+  };
+
+  const [defaultParentId, setDefaultParentId] = useState<string | null | undefined>();
+
+  const closeModal = () => {
+    setModalKind(null);
+    setEditingUrl(null);
+    setEditingCategory(null);
+    setDefaultCategoryId(undefined);
+    setDefaultParentId(undefined);
+  };
+
+  const handleUrlSubmit = async (data: UrlFormData) => {
+    setErrorMessage(null);
+    const result = editingUrl ? await updateUrl(editingUrl.id, data) : await createUrl(data);
+    if (!result.ok) {
+      setErrorMessage(result.error);
+      return;
+    }
+    closeModal();
+    refresh();
+  };
+
+  const handleUrlDelete = async () => {
+    if (!editingUrl) return;
+    const result = await deleteUrl(editingUrl.id);
+    if (!result.ok) {
+      setErrorMessage(result.error);
+      return;
+    }
+    closeModal();
+    refresh();
+  };
+
+  const handleCategorySubmit = async (data: {
+    name: string;
+    slug: string;
+    color: string;
+    sortOrder: number;
+    parentId?: string | null;
+    iconUrl?: string | null;
+  }) => {
+    setErrorMessage(null);
+    const result = editingCategory
+      ? await updateCategory(editingCategory.id, data)
+      : await createCategory(data);
+    if (!result.ok) {
+      setErrorMessage(result.error);
+      return;
+    }
+    closeModal();
+    refresh();
+  };
+
+  const handleCategoryDelete = async () => {
+    if (!editingCategory || !confirm("このカテゴリーを削除しますか？")) return;
+    const result = await deleteCategory(editingCategory.id);
+    if (!result.ok) {
+      setErrorMessage(result.error);
+      return;
+    }
+    closeModal();
+    refresh();
+  };
+
+  const handleCategoryClick = (categoryId: string) => {
+    if (editMode && isAdmin) {
+      const cat = categories.find((c) => c.id === categoryId);
+      if (cat) openCategoryModal(cat);
+      return;
+    }
+    pushFolder(categoryId);
+  };
+
+  const handleUrlClick = (urlId: string) => {
+    const url = urls.find((u) => u.id === urlId);
+    if (!url) return;
+    if (editMode && isAdmin) {
+      openUrlModal(url);
+      return;
+    }
+    void handleOpenUrl(url);
   };
 
   const handleToggleFavorite = async (urlId: string) => {
@@ -121,7 +249,6 @@ export function AppShell({
         item.id === urlId ? { ...item, is_favorite: !item.is_favorite } : item,
       ),
     );
-
     const result = await toggleFavorite(urlId);
     if (!result.ok) {
       setErrorMessage(result.error);
@@ -129,193 +256,259 @@ export function AppShell({
     }
   };
 
-  const openCreateUrlModal = () => {
-    setEditingUrl(null);
-    setErrorMessage(null);
-    setIsUrlModalOpen(true);
+  const reorderCategoryItems = async (fromId: string, toId: string, parentId: string | null) => {
+    const siblings = parentId
+      ? getChildCategories(categories, parentId)
+      : getTopLevelCategories(categories);
+    const ids = siblings.map((c) => c.id);
+    const fromIndex = ids.indexOf(fromId);
+    const toIndex = ids.indexOf(toId);
+    if (fromIndex < 0 || toIndex < 0) return;
+    ids.splice(fromIndex, 1);
+    ids.splice(toIndex, 0, fromId);
+    const result = await reorderCategories(ids);
+    if (!result.ok) setErrorMessage(result.error);
+    else refresh();
   };
 
-  const openEditUrlModal = (url: UrlWithCategory) => {
-    setEditingUrl(url);
-    setErrorMessage(null);
-    setIsUrlModalOpen(true);
+  const reorderUrlItems = async (fromId: string, toId: string, categoryId: string) => {
+    const items = getUrlsInCategory(urls, categoryId);
+    const ids = items.map((u) => u.id);
+    const fromIndex = ids.indexOf(fromId);
+    const toIndex = ids.indexOf(toId);
+    if (fromIndex < 0 || toIndex < 0) return;
+    ids.splice(fromIndex, 1);
+    ids.splice(toIndex, 0, fromId);
+    const result = await reorderUrls(ids);
+    if (!result.ok) setErrorMessage(result.error);
+    else refresh();
   };
 
-  const closeUrlModal = () => {
-    setIsUrlModalOpen(false);
-    setEditingUrl(null);
-  };
+  const urlToIcon = (url: UrlWithCategory) => ({
+    id: url.id,
+    title: url.title,
+    iconUrl: url.icon_url,
+    color: getUrlIconColor(url.url, url.category.color),
+  });
 
-  const handleUrlSubmit = async (data: UrlFormData) => {
-    setErrorMessage(null);
+  const categoryToIcon = (cat: Category) => ({
+    id: cat.id,
+    title: cat.name,
+    iconUrl: cat.icon_url,
+    color: cat.color,
+  });
 
-    const result = editingUrl
-      ? await updateUrl(editingUrl.id, data)
-      : await createUrl(data);
+  const adminActions = isAdmin ? (
+    <div className="flex items-center gap-2">
+      <button
+        type="button"
+        onClick={() => setEditMode((v) => !v)}
+        className={`rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors ${
+          editMode
+            ? "bg-[#007aff] text-white"
+            : "bg-white/70 text-[#007aff] backdrop-blur"
+        }`}
+      >
+        {editMode ? "完了" : "編集"}
+      </button>
+      <Link
+        href="/admin"
+        className="rounded-full bg-white/70 px-3 py-1.5 text-[13px] font-medium text-[#007aff] backdrop-blur"
+      >
+        管理
+      </Link>
+    </div>
+  ) : profile ? (
+    <button
+      type="button"
+      onClick={() => signOut()}
+      className="rounded-full bg-white/70 px-3 py-1.5 text-[13px] font-medium text-[#007aff] backdrop-blur"
+    >
+      退出
+    </button>
+  ) : null;
 
-    if (!result.ok) {
-      setErrorMessage(result.error);
-      return;
-    }
+  const renderHome = () => (
+    <ScreenWrapper animation={animation}>
+      <HomeTopBar rightAction={adminActions} />
+      <HomeSearchBar value={searchQuery} onChange={setSearchQuery} />
 
-    closeUrlModal();
-    refresh();
-  };
-
-  const handleUrlDelete = async () => {
-    if (!editingUrl) return;
-    setErrorMessage(null);
-
-    const result = await deleteUrl(editingUrl.id);
-    if (!result.ok) {
-      setErrorMessage(result.error);
-      return;
-    }
-
-    closeUrlModal();
-    refresh();
-  };
-
-  const openCategoryModal = () => {
-    setCategoryModalView("list");
-    setEditingCategory(null);
-    setErrorMessage(null);
-    setIsCategoryModalOpen(true);
-  };
-
-  const closeCategoryModal = () => {
-    setIsCategoryModalOpen(false);
-    setCategoryModalView("list");
-    setEditingCategory(null);
-  };
-
-  const openCategoryForm = (category: Category | null) => {
-    setEditingCategory(category);
-    setCategoryModalView("form");
-    setErrorMessage(null);
-  };
-
-  const handleCategorySubmit = async (data: {
-    name: string;
-    slug: string;
-    color: string;
-    sortOrder: number;
-  }) => {
-    setErrorMessage(null);
-
-    const result = editingCategory
-      ? await updateCategory(editingCategory.id, data)
-      : await createCategory(data);
-
-    if (!result.ok) {
-      setErrorMessage(result.error);
-      return;
-    }
-
-    setCategoryModalView("list");
-    setEditingCategory(null);
-    refresh();
-  };
-
-  const handleCategoryDelete = async (categoryId: string) => {
-    if (!confirm("このカテゴリーを削除しますか？")) return;
-    setErrorMessage(null);
-
-    const result = await deleteCategory(categoryId);
-    if (!result.ok) {
-      setErrorMessage(result.error);
-      return;
-    }
-
-    refresh();
-  };
-
-  return (
-    <div className="flex min-h-dvh bg-neutral-100">
-      <Sidebar
-        categories={categories}
-        tags={tags}
-        activeFilter={activeFilter}
-        isAdmin={isAdmin}
-        open={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-        onFilterChange={setActiveFilter}
-        onManageCategories={openCategoryModal}
-      />
-
-      <div className="flex min-w-0 flex-1 flex-col">
-        <Header
-          searchQuery={query}
-          onSearchChange={setQuery}
-          profile={profile}
-          onMenuOpen={() => setSidebarOpen(true)}
-        />
-
-        <main className="flex-1 overflow-y-auto px-3 py-4 pb-24 sm:px-6 sm:py-6 sm:pb-6">
-          {!isSupabaseConfigured && (
-            <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-              Supabase が未設定です。`.env.local` に接続情報を設定し、SQL マイグレーションを実行してください。
-            </div>
+      {searchQuery.trim() ? (
+        <>
+          {searchResults.urls.length > 0 && (
+            <>
+              <SectionTitle>アプリ</SectionTitle>
+              <IconGrid
+                items={searchResults.urls.map(urlToIcon)}
+                onItemClick={handleUrlClick}
+                editMode={editMode}
+              />
+            </>
+          )}
+          {searchResults.categories.length > 0 && (
+            <>
+              <SectionTitle>フォルダ</SectionTitle>
+              <IconGrid
+                items={searchResults.categories.map(categoryToIcon)}
+                onItemClick={handleCategoryClick}
+                editMode={editMode}
+                onReorder={
+                  editMode
+                    ? (from, to) => reorderCategoryItems(from, to, null)
+                    : undefined
+                }
+              />
+            </>
+          )}
+          {searchResults.urls.length === 0 && searchResults.categories.length === 0 && (
+            <p className="px-4 py-8 text-center text-[15px] text-[#8e8e93]">
+              見つかりませんでした
+            </p>
+          )}
+        </>
+      ) : (
+        <>
+          {favorites.length > 0 && (
+            <>
+              <SectionTitle>お気に入り</SectionTitle>
+              <IconGrid
+                items={favorites.map(urlToIcon)}
+                onItemClick={handleUrlClick}
+                editMode={editMode}
+              />
+            </>
           )}
 
-          {errorMessage && (
-            <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-              {errorMessage}
+          {recent.length > 0 && (
+            <>
+              <SectionTitle>最近開いた</SectionTitle>
+              <IconGrid
+                items={recent.map(urlToIcon)}
+                onItemClick={handleUrlClick}
+                editMode={editMode}
+              />
+            </>
+          )}
+
+          <SectionTitle>カテゴリー</SectionTitle>
+          <IconGrid
+            items={topCategories.map(categoryToIcon)}
+            onItemClick={handleCategoryClick}
+            editMode={editMode}
+            onReorder={
+              editMode ? (from, to) => reorderCategoryItems(from, to, null) : undefined
+            }
+          />
+
+          {editMode && isAdmin && (
+            <div className="px-4 py-4">
               <button
                 type="button"
-                className="ml-3 underline"
-                onClick={() => setErrorMessage(null)}
+                onClick={() => openCategoryModal(null, null)}
+                className="flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-[#c7c7cc] py-4 text-[15px] text-[#007aff]"
               >
-                閉じる
+                + カテゴリーを追加
               </button>
             </div>
           )}
+        </>
+      )}
+    </ScreenWrapper>
+  );
 
-          <div className="mb-4 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-            <div>
-              <h2 className="text-lg font-semibold text-neutral-900">URL一覧</h2>
-              <p className="text-sm text-neutral-500">{filteredUrls.length} 件</p>
-            </div>
-            <div className="hidden items-center gap-3 sm:flex">
-              <UrlViewToggle viewMode={viewMode} onChange={setViewMode} />
-              <Button type="button" onClick={openCreateUrlModal} disabled={categories.length === 0}>
-                + URL追加
-              </Button>
-            </div>
-          </div>
+  const renderFolder = () => {
+    if (!currentCategory) return null;
 
-          <UrlList
-            urls={filteredUrls}
-            viewMode={viewMode}
-            onOpen={handleOpenUrl}
-            onEdit={openEditUrlModal}
-            onToggleFavorite={handleToggleFavorite}
+    const gridItems = showFolderAsCategories
+      ? folderChildren.map(categoryToIcon)
+      : folderUrls.map(urlToIcon);
+
+    return (
+      <ScreenWrapper animation={animation}>
+        <FolderHeader
+          title={currentCategory.name}
+          onBack={popFolder}
+          rightAction={adminActions}
+        />
+
+        {gridItems.length > 0 ? (
+          <IconGrid
+            items={gridItems}
+            onItemClick={
+              showFolderAsCategories ? handleCategoryClick : handleUrlClick
+            }
+            editMode={editMode}
+            onReorder={
+              editMode
+                ? showFolderAsCategories
+                  ? (from, to) =>
+                      reorderCategoryItems(from, to, currentCategory.id)
+                  : (from, to) => reorderUrlItems(from, to, currentCategory.id)
+                : undefined
+            }
           />
-        </main>
+        ) : (
+          <p className="px-4 py-12 text-center text-[15px] text-[#8e8e93]">
+            {showFolderAsCategories
+              ? "サブカテゴリーがありません"
+              : "アプリがありません"}
+          </p>
+        )}
 
-        <div className="fixed bottom-4 right-4 z-20 sm:hidden pb-safe">
-          <Button
-            type="button"
-            onClick={openCreateUrlModal}
-            disabled={categories.length === 0}
-            className="h-12 min-w-12 rounded-full px-4 shadow-lg"
-            aria-label="URLを追加"
-          >
-            + URL追加
-          </Button>
-        </div>
-      </div>
+        {editMode && isAdmin && (
+          <div className="space-y-3 px-4 py-4 pb-safe">
+            {showFolderAsCategories && (
+              <button
+                type="button"
+                onClick={() => openCategoryModal(null, currentCategory.id)}
+                className="flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-[#c7c7cc] py-4 text-[15px] text-[#007aff]"
+              >
+                + サブカテゴリーを追加
+              </button>
+            )}
+            {!showFolderAsCategories && (
+              <button
+                type="button"
+                onClick={() => openUrlModal(undefined, currentCategory.id)}
+                className="flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-[#c7c7cc] py-4 text-[15px] text-[#007aff]"
+              >
+                + アプリを追加
+              </button>
+            )}
+          </div>
+        )}
+      </ScreenWrapper>
+    );
+  };
+
+  return (
+    <div className="ios-wallpaper mx-auto flex min-h-dvh w-full max-w-md flex-col">
+      <main className="flex-1 overflow-y-auto pb-safe">
+        {!isSupabaseConfigured && (
+          <div className="mx-4 mt-3 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            Supabase が未設定です
+          </div>
+        )}
+
+        {errorMessage && (
+          <div className="mx-4 mt-3 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-800">
+            {errorMessage}
+            <button type="button" className="ml-2 underline" onClick={() => setErrorMessage(null)}>
+              閉じる
+            </button>
+          </div>
+        )}
+
+        {currentScreen.type === "home" ? renderHome() : renderFolder()}
+      </main>
 
       <Modal
-        open={isUrlModalOpen}
-        onClose={closeUrlModal}
-        title={editingUrl ? "URL編集" : "URL追加"}
+        open={modalKind === "url"}
+        onClose={closeModal}
+        title={editingUrl ? "アプリを編集" : "アプリを追加"}
       >
-        {errorMessage && isUrlModalOpen && (
-          <p className="mb-4 text-sm text-red-600">{errorMessage}</p>
-        )}
         <UrlForm
-          key={editingUrl?.id ?? "new"}
+          key={editingUrl?.id ?? `new-${defaultCategoryId}`}
           categories={categories}
           tags={tags}
           initialData={
@@ -325,53 +518,54 @@ export function AppShell({
                   url: editingUrl.url,
                   categoryId: editingUrl.category_id,
                   description: editingUrl.description ?? undefined,
+                  iconUrl: editingUrl.icon_url,
                   tagIds: editingUrl.tags.map((tag) => tag.id),
                 }
-              : undefined
+              : defaultCategoryId
+                ? { categoryId: defaultCategoryId }
+                : undefined
           }
           onSubmit={handleUrlSubmit}
           onDelete={editingUrl ? handleUrlDelete : undefined}
-          onCancel={closeUrlModal}
+          onCancel={closeModal}
+          onToggleFavorite={
+            editingUrl ? () => handleToggleFavorite(editingUrl.id) : undefined
+          }
+          isFavorite={editingUrl?.is_favorite}
         />
       </Modal>
 
       <Modal
-        open={isCategoryModalOpen}
-        onClose={closeCategoryModal}
-        title={categoryModalView === "list" ? "カテゴリー管理" : editingCategory ? "カテゴリー編集" : "カテゴリー追加"}
-        className="max-w-2xl"
+        open={modalKind === "category"}
+        onClose={closeModal}
+        title={editingCategory ? "フォルダを編集" : "フォルダを追加"}
       >
-        {errorMessage && isCategoryModalOpen && (
-          <p className="mb-4 text-sm text-red-600">{errorMessage}</p>
-        )}
-
-        {categoryModalView === "list" ? (
-          <CategoryList
-            categories={categories}
-            onEdit={(category) => openCategoryForm(category)}
-            onDelete={handleCategoryDelete}
-            onAdd={() => openCategoryForm(null)}
-          />
-        ) : (
-          <CategoryForm
-            key={editingCategory?.id ?? "new"}
-            initialData={
-              editingCategory
-                ? {
-                    name: editingCategory.name,
-                    slug: editingCategory.slug,
-                    color: editingCategory.color,
-                    sortOrder: editingCategory.sort_order,
-                  }
-                : { sortOrder: categories.length + 1 }
-            }
-            onSubmit={handleCategorySubmit}
-            onCancel={() => {
-              setCategoryModalView("list");
-              setEditingCategory(null);
-            }}
-          />
-        )}
+        <CategoryForm
+          key={editingCategory?.id ?? `new-${defaultParentId}`}
+          categories={categories}
+          initialData={
+            editingCategory
+              ? {
+                  name: editingCategory.name,
+                  slug: editingCategory.slug,
+                  color: editingCategory.color,
+                  sortOrder: editingCategory.sort_order,
+                  parentId: editingCategory.parent_id,
+                  iconUrl: editingCategory.icon_url,
+                }
+              : {
+                  sortOrder:
+                    (defaultParentId
+                      ? getChildCategories(categories, defaultParentId)
+                      : topCategories
+                    ).length + 1,
+                  parentId: defaultParentId ?? null,
+                }
+          }
+          onSubmit={handleCategorySubmit}
+          onDelete={editingCategory ? handleCategoryDelete : undefined}
+          onCancel={closeModal}
+        />
       </Modal>
     </div>
   );
