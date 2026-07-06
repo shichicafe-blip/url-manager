@@ -5,6 +5,7 @@ import { getCurrentProfile, isAdmin } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { isValidUrl, normalizeUrl } from "@/lib/utils/url";
+import { isGoogleSheetsUrl, normalizeGoogleSheetsUrl } from "@/lib/sheets/parse-url";
 import type { Url } from "@/types/database";
 import { revalidatePath } from "next/cache";
 import type { Database } from "@/lib/supabase/types";
@@ -17,13 +18,19 @@ type UrlInput = {
   categoryId: string;
   description?: string;
   tagIds?: string[];
+  iconUrl?: string | null;
 };
+
+function normalizeStoredUrl(url: string): string {
+  const normalized = normalizeUrl(url);
+  return isGoogleSheetsUrl(normalized) ? normalizeGoogleSheetsUrl(normalized) : normalized;
+}
 
 function validateUrlInput(data: UrlInput): string | null {
   if (!data.title.trim()) return "タイトルを入力してください";
   if (!data.categoryId) return "カテゴリーを選択してください";
 
-  const normalized = normalizeUrl(data.url);
+  const normalized = normalizeStoredUrl(data.url);
   if (!isValidUrl(normalized)) return "有効な URL を入力してください";
 
   return null;
@@ -59,9 +66,10 @@ export async function createUrl(data: UrlInput): Promise<ActionResult<Url>> {
     .from("urls")
     .insert({
       title: data.title.trim(),
-      url: normalizeUrl(data.url),
+      url: normalizeStoredUrl(data.url),
       category_id: data.categoryId,
       description: data.description?.trim() || null,
+      icon_url: data.iconUrl?.trim() || null,
       user_id: profile.id,
     })
     .select("*")
@@ -89,12 +97,13 @@ export async function updateUrl(
   const payload: UrlUpdate = {};
   if (data.title !== undefined) payload.title = data.title.trim();
   if (data.url !== undefined) {
-    const normalized = normalizeUrl(data.url);
+    const normalized = normalizeStoredUrl(data.url);
     if (!isValidUrl(normalized)) return failure("有効な URL を入力してください");
     payload.url = normalized;
   }
   if (data.categoryId !== undefined) payload.category_id = data.categoryId;
   if (data.description !== undefined) payload.description = data.description.trim() || null;
+  if (data.iconUrl !== undefined) payload.icon_url = data.iconUrl?.trim() || null;
 
   const supabase = await createClient();
   const { data: updated, error } = await supabase
@@ -164,6 +173,25 @@ export async function openUrl(id: string): Promise<ActionResult> {
     .eq("id", id);
 
   if (updateError) return failure(updateError.message);
+
+  revalidatePath("/");
+  return success(undefined);
+}
+
+export async function reorderUrls(orderedIds: string[]): Promise<ActionResult> {
+  if (!isSupabaseConfigured()) return failure("Supabase が未設定です");
+
+  const profile = await getCurrentProfile();
+  if (!profile) return failure("認証が必要です");
+  if (!isAdmin(profile)) return failure("管理者権限が必要です");
+
+  const supabase = await createClient();
+  const updates = orderedIds.map((id, index) =>
+    supabase.from("urls").update({ sort_order: index + 1 }).eq("id", id),
+  );
+  const results = await Promise.all(updates);
+  const failed = results.find((r) => r.error);
+  if (failed?.error) return failure(failed.error.message);
 
   revalidatePath("/");
   return success(undefined);

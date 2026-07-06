@@ -10,9 +10,13 @@ create table public.categories (
   slug text not null unique,
   color text not null default '#6B7280',
   sort_order integer not null default 0,
+  parent_id uuid null references public.categories (id) on delete restrict,
+  icon_url text null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+create index idx_categories_parent_id on public.categories (parent_id);
 
 create table public.urls (
   id uuid primary key default gen_random_uuid(),
@@ -24,6 +28,7 @@ create table public.urls (
   icon_url text null,
   is_favorite boolean not null default false,
   click_count integer not null default 0,
+  sort_order integer not null default 0,
   last_opened_at timestamptz null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -232,3 +237,15 @@ create trigger on_auth_user_auto_confirm
 update auth.users
 set email_confirmed_at = coalesce(email_confirmed_at, now())
 where email_confirmed_at is null;
+
+-- ========== 004: カテゴリ階層 + アイコン ==========
+alter table public.categories
+  add column if not exists parent_id uuid null references public.categories (id) on delete restrict,
+  add column if not exists icon_url text null;
+
+create index if not exists idx_categories_parent_id on public.categories (parent_id);
+
+alter table public.urls
+  add column if not exists sort_order integer not null default 0;
+
+create index if not exists idx_urls_sort_order on public.urls (category_id, sort_order);

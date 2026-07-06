@@ -5,4 +5,6 @@ export type CategoryFormData = {
   slug: string;
   color: string;
   sortOrder: number;
+  parentId?: string | null;
+  iconUrl?: string | null;
 };
