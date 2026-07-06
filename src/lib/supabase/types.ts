@@ -16,8 +16,6 @@ export interface Database {
           slug: string;
           color: string;
           sort_order: number;
-          parent_id: string | null;
-          icon_url: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -27,8 +25,6 @@ export interface Database {
           slug: string;
           color?: string;
           sort_order?: number;
-          parent_id?: string | null;
-          icon_url?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -38,8 +34,6 @@ export interface Database {
           slug?: string;
           color?: string;
           sort_order?: number;
-          parent_id?: string | null;
-          icon_url?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -56,7 +50,6 @@ export interface Database {
           icon_url: string | null;
           is_favorite: boolean;
           click_count: number;
-          sort_order: number;
           last_opened_at: string | null;
           created_at: string;
           updated_at: string;
@@ -71,7 +64,6 @@ export interface Database {
           icon_url?: string | null;
           is_favorite?: boolean;
           click_count?: number;
-          sort_order?: number;
           last_opened_at?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -86,7 +78,6 @@ export interface Database {
           icon_url?: string | null;
           is_favorite?: boolean;
           click_count?: number;
-          sort_order?: number;
           last_opened_at?: string | null;
           created_at?: string;
           updated_at?: string;

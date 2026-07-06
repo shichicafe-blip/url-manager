@@ -38,8 +38,8 @@ export function Modal({ open, onClose, title, children, className }: ModalProps)
         aria-modal="true"
         aria-labelledby="modal-title"
         className={cn(
-          "relative z-10 flex max-h-[92dvh] w-full max-w-md flex-col bg-white shadow-xl",
-          "rounded-t-3xl",
+          "relative z-10 flex max-h-[92dvh] w-full flex-col border border-neutral-200 bg-white shadow-xl",
+          "rounded-t-2xl sm:max-w-lg sm:rounded-lg",
           className,
         )}
       >

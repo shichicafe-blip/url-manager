@@ -6,7 +6,6 @@ export type UrlFormData = {
   categoryId: string;
   description?: string;
   tagIds?: string[];
-  iconUrl?: string | null;
 };
 
 export type UrlFilter = "all" | "favorites" | "recent" | string;
