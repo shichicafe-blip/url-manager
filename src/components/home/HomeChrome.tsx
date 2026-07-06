@@ -52,7 +52,7 @@ export function HomeTopBar({ rightAction }: HomeTopBarProps) {
         <p className="text-[11px] font-medium uppercase tracking-wider text-[#8e8e93]">
           REPLUSWORKS
         </p>
-        <h1 className="text-[28px] font-bold tracking-tight text-[#1c1c1e]">ホーム</h1>
+        <h1 className="text-[28px] font-bold tracking-tight text-[#1c1c1e]">Smart Sheet</h1>
       </div>
       {rightAction}
     </header>

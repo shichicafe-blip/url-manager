@@ -52,7 +52,7 @@ export function AuthForm() {
           R
         </div>
         <h1 className="text-[22px] font-bold text-[#1c1c1e]">REPLUSWORKS</h1>
-        <p className="mt-1 text-[15px] text-[#8e8e93]">会社専用ホーム画面</p>
+        <p className="mt-1 text-[15px] text-[#8e8e93]">Googleシートをスマホで見やすく</p>
       </div>
 
       <div className="mb-6 flex rounded-xl bg-[#767680]/12 p-1">
