@@ -128,9 +128,6 @@ export function UrlForm({
           disabled={isSubmitting}
           placeholder="https://docs.google.com/spreadsheets/d/..."
         />
-        <p className="mt-1 text-xs text-[#8e8e93]">
-          GoogleスプレッドシートのURLはスマホ向けビューアーで自動表示されます（閲覧のみ・元データは変更しません）
-        </p>
       </div>
       <div>
         <label className="mb-1 block text-sm font-medium text-neutral-700">アイコン画像 URL</label>

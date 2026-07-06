@@ -5,7 +5,6 @@ import { getCurrentProfile, isAdmin } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { isValidUrl, normalizeUrl } from "@/lib/utils/url";
-import { isGoogleSheetsUrl, normalizeGoogleSheetsUrl } from "@/lib/sheets/parse-url";
 import type { Url } from "@/types/database";
 import { revalidatePath } from "next/cache";
 import type { Database } from "@/lib/supabase/types";
@@ -21,16 +20,11 @@ type UrlInput = {
   iconUrl?: string | null;
 };
 
-function normalizeStoredUrl(url: string): string {
-  const normalized = normalizeUrl(url);
-  return isGoogleSheetsUrl(normalized) ? normalizeGoogleSheetsUrl(normalized) : normalized;
-}
-
 function validateUrlInput(data: UrlInput): string | null {
   if (!data.title.trim()) return "タイトルを入力してください";
   if (!data.categoryId) return "カテゴリーを選択してください";
 
-  const normalized = normalizeStoredUrl(data.url);
+  const normalized = normalizeUrl(data.url);
   if (!isValidUrl(normalized)) return "有効な URL を入力してください";
 
   return null;
@@ -66,7 +60,7 @@ export async function createUrl(data: UrlInput): Promise<ActionResult<Url>> {
     .from("urls")
     .insert({
       title: data.title.trim(),
-      url: normalizeStoredUrl(data.url),
+      url: normalizeUrl(data.url),
       category_id: data.categoryId,
       description: data.description?.trim() || null,
       icon_url: data.iconUrl?.trim() || null,
@@ -97,7 +91,7 @@ export async function updateUrl(
   const payload: UrlUpdate = {};
   if (data.title !== undefined) payload.title = data.title.trim();
   if (data.url !== undefined) {
-    const normalized = normalizeStoredUrl(data.url);
+    const normalized = normalizeUrl(data.url);
     if (!isValidUrl(normalized)) return failure("有効な URL を入力してください");
     payload.url = normalized;
   }

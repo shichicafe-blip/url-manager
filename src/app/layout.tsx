@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Smart Sheet Viewer | REPLUSWORKS",
-  description: "Googleスプレッドシートをスマホで見やすく表示する専用ビューアー",
+  title: "REPLUSWORKS | 会社専用ホーム画面",
+  description: "会社のURLをまとめて開くホーム画面",
 };
 
 export const viewport = {

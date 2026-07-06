@@ -37,7 +37,6 @@ import {
   searchAll,
 } from "@/lib/categories/tree";
 import { getUrlIconColor } from "@/lib/icons";
-import { isGoogleSheetsUrl } from "@/lib/sheets/parse-url";
 import type { Profile } from "@/types/database";
 import { signOut } from "@/features/auth/actions";
 import Link from "next/link";
@@ -109,11 +108,6 @@ export function AppShell({
   };
 
   const handleOpenUrl = async (url: UrlWithCategory) => {
-    if (isGoogleSheetsUrl(url.url)) {
-      router.push(`/sheet/${url.id}`);
-      return;
-    }
-
     window.open(url.url, "_blank", "noopener,noreferrer");
     const now = new Date().toISOString();
     setUrls((prev) =>
