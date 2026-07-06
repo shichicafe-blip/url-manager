@@ -116,7 +116,13 @@ export function SheetViewer({ urlId, title, initialPayload }: SheetViewerProps) 
             {error ?? "データを表示できません"}
           </p>
           <p className="mt-3 text-[13px] leading-relaxed text-[#8e8e93]">
-            スプレッドシートを「リンクを知っている全員が閲覧可」に設定してください。元のシートは変更されません。
+            次を確認してください:
+            <br />
+            1. スプレッドシートを「リンクを知っている全員が閲覧可」にする
+            <br />
+            2. URLは docs.google.com/spreadsheets/d/... 形式を使う
+            <br />
+            3. 別シートを見る場合はURL末尾の #gid= を確認する
           </p>
           <button
             type="button"
