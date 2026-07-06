@@ -60,7 +60,10 @@ export function parseGvizResponse(raw: string): SheetData {
 
   const parsed = JSON.parse(raw.slice(jsonStart, jsonEnd + 1)) as GvizResponse;
   if (parsed.status === "error") {
-    throw new Error("スプレッドシートの取得に失敗しました");
+    const message =
+      (parsed as { errors?: { message?: string }[] }).errors?.[0]?.message ??
+      "スプレッドシートの取得に失敗しました";
+    throw new Error(message);
   }
 
   const table = parsed.table;
